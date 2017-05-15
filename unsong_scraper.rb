@@ -4,23 +4,20 @@ require 'nokogiri'
 require 'open-uri'
 require 'uri'
 
-#set to first chapter
-@next_chapter = 'http://unsongbook.com/prologue-2/'
 @toc = "<h1>Table of Contents</h1>"
 @book_body = ""
 @index = -1
 
-while @next_chapter
-  #check if url is weird
-  if @next_chapter.to_s.include?("½")
-    @next_chapter = URI.escape(@next_chapter)
-  end
-  if @next_chapter.to_s.start_with?("//")
-    @next_chapter = "https:" + @next_chapter
-  end
-  doc = Nokogiri::HTML(open(@next_chapter))
-  #get
-  @chapter_title = doc.css('h1.pjgm-posttitle').first #html formatted
+toc_page = Nokogiri::HTML(open('http://unsongbook.com/')).css('.pjgm-postcontent')
+
+toc_page.css('a').each do |link|
+  url = link['href']
+  next unless url =~ /\/prologue|\/book|\/interlude|\/chapter/
+  url = URI.escape(url) unless url.ascii_only?
+  url = "https:" + url if url.to_s.start_with?("//")
+
+  doc = Nokogiri::HTML(open(url))
+  @chapter_title = doc.css('h1.pjgm-posttitle').first
 
   #modify chapter to have link
   @chapter_title_plain = @chapter_title.content
@@ -35,12 +32,6 @@ while @next_chapter
   @book_body << @chapter_content
   @toc << "<a href=\"#chap#{@index.to_s}\">#{@chapter_title_plain}</a><br>"
   @index += 1
-  #next
-  @next_chapter = if doc.css('div.pjgm-navigation div a').last.content.to_s.include?("→")
-                    doc.css('div.pjgm-navigation div a').last['href']
-                  else
-                    false
-                  end
 end
 
 $stderr.puts "Writing Book..."
